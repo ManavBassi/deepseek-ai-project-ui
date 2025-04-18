@@ -1,0 +1,144 @@
+First, the code starts with importing necessary libraries: streamlit, requests, and json. That makes sense because Streamlit is used for building web apps, requests for handling HTTP requests, and json for parsing JSON data.
+
+Next, there's st.set_page_config() which sets up the page title and layout. The page title is "DeepSeek Chatbot" and the layout is set to "wide", meaning it will use the full width of the screen. I think this makes the chat interface wider and more user-friendly.
+
+Then, st.markdown() is used to display a centered heading with some styling. It uses HTML within the markdown string because of the unsafe_allow_html parameter. The color is specified as #4A90E2, which looks like a pleasant blue shade.
+
+Moving on to the sidebar settings, the code uses st.sidebar.within a context manager. Inside, it adds a header "⚙️ Settings" and two text inputs: one for the Ollama API host and another for the model name. The default values are localhost:11434 and deepseek-r1:14b respectively. There's also a note reminding the user to ensure the Ollama server is running, which makes sense because without it, the chatbot wouldn't work.
+
+Then, there's a check for "messages" in st.session_state. If not present, it initializes an empty list. This is used to store the conversation history between the user and the bot.
+
+The code then loops through each message in the session state messages and displays them. It uses st.chat_message() which creates chat bubbles based on the role (user or assistant). The content is displayed using st.markdown(), allowing for HTML rendering, which explains why some messages might have formatting like emojis or styled text.
+
+Next, there's a section where prompt is assigned using st.chat_input(). This is where the user types their message. When the user sends a message, it appends to the session_state.messages as a user role and displays it in the chat using another st.chat_message() with "user" as the role.
+
+After that, the code adds an assistant placeholder message to indicate that the bot is processing the response. It uses message_placeholder = st.empty() to create a space where the response will be displayed.
+
+The try-except block handles sending a POST request to the Ollama server's API endpoint. The JSON payload includes the model name and the entire chat history. Since it uses stream=True, the response is received in chunks.
+
+Inside the for loop over each chunk from the response, it processes each line of data. It skips empty lines and decodes them into strings. If a line starts with "data: ", it strips that prefix to get the actual content. Then, it parses the JSON data to extract the message's content. Each token (probably parts of the response) is added to full_response.
+
+The placeholder message initially shows "▌" at the end to indicate ongoing processing. Once all chunks are processed, the full_response is displayed in the message_placeholder, and this message is added to the session_state.messages as an assistant role.
+
+If there's any exception during this process (like a network error or server issue), it catches it and displays an error message with details, stopping further execution for that message.
+
+I'm a bit confused about how the response from Ollama is handled. It seems like each chunk contains parts of the response, but I'm not entirely sure how they're structured. Also, using st.markdown() within the placeholder allows for rich text formatting, which is why sometimes messages look styled.
+
+Overall, this code sets up a chat interface where users can interact with a bot that connects to an Ollama server, streaming responses and displaying both user and bot messages in a conversational format.
+
+Here's a detailed explanation of each part of the provided code:
+
+Importing Libraries
+
+import streamlit as st
+import requests
+import json
+
+streamlit is used to create the web interface for the chatbot.
+requests handles HTTP requests to communicate with the Ollama server.
+json is used to parse JSON data received from the server.
+Setting Up the Page
+
+st.set_page_config(page_title="DeepSeek Chatbot", layout="wide")
+
+Sets the page title to "DeepSeek Chatbot".
+Configures the layout to be wide, using the full width of the screen.
+Adding a Header
+
+st.markdown("<h1 style='text-align: center; color: #4A90E2;'>🤖 DeepSeek R1 Chatbot</h1>", unsafe_allow_html=True)
+
+Displays a centered header with the title "DeepSeek R1 Chatbot".
+The robot emoji adds a chatbot icon next to the title.
+unsafe_allow_html=True allows HTML styling in the markdown.
+Creating the Sidebar
+
+with st.sidebar:
+    st.header("⚙️ Settings")
+    host = st.text_input("Ollama API Host", "http://localhost:11434")
+    model = st.text_input("Model Name", "deepseek-r1:14b")
+    st.markdown("Make sure your Ollama server is running.")
+
+The sidebar contains settings for the chatbot.
+host is where the Ollama server is running (default is localhost:11434).
+model allows selecting which model to use (default is deepseek-r1:14b).
+Initializing Chat History
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+Checks if the chat history exists in session state.
+If not, initializes an empty list to store messages.
+Displaying Previous Messages
+
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"], unsafe_allow_html=True)
+
+Iterates through each message in the chat history.
+Displays messages using st.chat_message() which creates chat bubbles.
+msg["role"] determines if it's a user or assistant message.
+st.markdown() displays the content with HTML support.
+User Input
+
+prompt = st.chat_input("Type your message here...")
+
+Creates an input box for users to type their messages.
+The text "Type your message here..." is a placeholder.
+Handling User Messages
+
+if prompt:
+    # Add user message to chat history and display it
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt, unsafe_allow_html=True)
+
+If the user types a message (prompt is not empty), it's added to session_state.messages.
+The message is displayed in the chat interface as a user message.
+Initializing Bot Response
+
+if prompt:
+    with st.chat_message("assistant"):
+        placeholder = st.empty()
+
+Creates an empty placeholder where the bot's response will be displayed.
+st.chat_message("assistant") sets up the message bubble for the bot.
+Sending Request to Ollama Server
+
+try:
+    response = requests.post(
+        f"{host}/api/generate",
+        json={"model": model, "messages": st.session_state.messages},
+        stream=True,
+    )
+except Exception as e:
+    # Handle any errors that occur during the request
+    pass
+
+Sends a POST request to the Ollama server's /api/generate endpoint.
+Includes the selected model and all previous messages.
+Uses streaming (stream=True) to receive the response in chunks.
+Processing the Response
+
+try:
+    for chunk in response.iter_content(chunk_size=1024):
+        if chunk:
+            data = json.loads(chunk)
+            content = data.get("message", "")
+            placeholder.markdown(content, unsafe_allow_html=True)
+            time.sleep(0.5)  # Simulate typing speed
+except Exception as e:
+    pass
+
+Iterates over the response chunks received from the server.
+For each chunk, it processes the JSON data to extract the message content.
+Displays the content in the placeholder using markdown.
+Adds a small delay (time.sleep(0.5)) to simulate typing speed.
+Error Handling
+
+except Exception as e:
+    pass
+
+Catches any exceptions that might occur during the request or processing.
+If an error occurs, it simply continues without displaying anything.
+This code sets up a complete chatbot interface where users can type messages, and the bot responds by sending requests to an Ollama server. The responses are streamed in chunks and displayed progressively in the chat interface.
+
